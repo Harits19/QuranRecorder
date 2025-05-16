@@ -1,6 +1,7 @@
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -40,6 +41,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.quranrecorder.file.AudioFile
 import com.example.quranrecorder.file.FileService
 import com.example.quranrecorder.quran.footer.FooterView
 import com.example.quranrecorder.record.RecordService
@@ -56,7 +58,6 @@ fun QuranView(paddingValues: PaddingValues) {
     val firstAyah = quran.firstAyah;
     val lastAyah = quran.lastAyah;
 
-    val files = FileService(context).getAudioFiles();
 
     val initialPage = 0;
 
@@ -66,6 +67,13 @@ fun QuranView(paddingValues: PaddingValues) {
 
 
     var selectedAyah by remember { mutableLongStateOf(firstAyah) }
+    var files by remember { mutableStateOf(emptyList<AudioFile>()) }
+    LaunchedEffect(selectedAyah) {
+        files = FileService(context).getAudioFiles()
+    }
+
+    Log.i("files", "files ${files.size}")
+
     var isRecording by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
