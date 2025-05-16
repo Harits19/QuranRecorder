@@ -29,13 +29,3 @@ class MainActivity : ComponentActivity() {
 }
 
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    QuranRecorderTheme {
-        Scaffold {innerPadding ->
-            QuranView(context = LocalContext.current, paddingValues = innerPadding)
-
-        }
-    }
-}
