@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.quranrecorder.scaffold.ScaffoldView
 import com.example.quranrecorder.ui.theme.QuranRecorderTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,11 +21,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             QuranRecorderTheme {
-                Scaffold {innerPadding ->
-                    QuranView(context = LocalContext.current, paddingValues = innerPadding)
+                ScaffoldView { innerPadding ->
+                    QuranView( paddingValues = innerPadding)
 
                 }
-            }        }
+            }
+        }
     }
 }
 

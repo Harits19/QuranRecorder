@@ -7,6 +7,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,12 +16,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +40,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.quranrecorder.file.FileService
 import com.example.quranrecorder.quran.footer.FooterView
 import com.example.quranrecorder.record.RecordService
 import com.example.quranrecorder.ui.theme.QuranRecorderTheme
@@ -41,13 +48,15 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun QuranView(context: Context, paddingValues: PaddingValues) {
+fun QuranView(paddingValues: PaddingValues) {
 
-
+    val context = LocalContext.current;
     val quran = remember { QuranService.loadQuran(context) }
     val pages = quran.pages;
     val firstAyah = quran.firstAyah;
     val lastAyah = quran.lastAyah;
+
+    val files = FileService(context).getAudioFiles();
 
     val initialPage = 0;
 
@@ -66,19 +75,20 @@ fun QuranView(context: Context, paddingValues: PaddingValues) {
     val lastAyahCurrentPage = quran.lastAyahByPage(currentPage)
 
     val recordService = remember { RecordService(context) }
-    val (start, stop) = recordService.handleRecord()
+
 
     suspend fun onClickNext() {
+        recordService.stop();
         val nextAyah = selectedAyah + 1;
         if (nextAyah > lastAyah) {
             return
         }
         selectedAyah = nextAyah;
+        recordService.start(nextAyah);
 
         if (lastAyahCurrentPage >= nextAyah) {
             return;
         }
-
         pagerState.animateScrollToPage(currentPage + 1)
 
     }
@@ -99,13 +109,12 @@ fun QuranView(context: Context, paddingValues: PaddingValues) {
     }
 
     fun startRecording() {
-
         isRecording = true;
-        start();
+        recordService.start(selectedAyah);
     }
 
     fun stopRecording() {
-        stop();
+        recordService.stop();
         isRecording = false;
     }
 
@@ -120,8 +129,7 @@ fun QuranView(context: Context, paddingValues: PaddingValues) {
 
     fun onClickStart() {
         val isGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.RECORD_AUDIO
+            context, Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED;
         when {
             isGranted -> {
@@ -159,18 +167,28 @@ fun QuranView(context: Context, paddingValues: PaddingValues) {
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(page) { ayah ->
                         val isSelected = ayah.number == selectedAyah;
-                        ListItem(
-                            headlineContent = {
-                                Text(
-                                    text = ayah.text, textAlign = TextAlign.Right,
-                                    fontSize = 32.sp,
-                                    lineHeight = 64.sp,
-                                    color = if (isSelected) Color.Blue else Color.Unspecified,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            },
-
+                        ListItem(headlineContent = {
+                            Text(
+                                text = ayah.text, textAlign = TextAlign.Right,
+                                fontSize = 32.sp,
+                                lineHeight = 64.sp,
+                                color = if (isSelected) Color.Blue else Color.Unspecified,
+                                modifier = Modifier.fillMaxWidth(),
                             )
+                        }, supportingContent = {
+                            val recordFile = files.find { item ->
+                                item.id == ayah.number
+                            }
+                            if (recordFile == null) return@ListItem;
+
+                            Row {
+                                Text(recordFile.file.name)
+                                Icon(Icons.Default.PlayArrow, contentDescription = "Play")
+                            }
+
+                        }
+
+                        )
                         HorizontalDivider()
 
                     }
@@ -181,19 +199,23 @@ fun QuranView(context: Context, paddingValues: PaddingValues) {
 
         }
 
-        FooterView(isRecording = isRecording, onClickStart = {
-            onClickStart()
-        }, onClickNext = {
-            scope.launch {
-                onClickNext()
-            }
-        }, onClickPrev = {
-            scope.launch {
-                onClickPrev()
-            }
-        }, onClickStop = {
-            stopRecording();
-        })
+        FooterView(
+            isRecording = isRecording,
+            onClickStart = {
+                onClickStart()
+            },
+            onClickNext = {
+                scope.launch {
+                    onClickNext()
+                }
+            },
+            onClickPrev = {
+                scope.launch {
+                    onClickPrev()
+                }
+            },
+            onClickStop = ::stopRecording,
+        )
 
     }
 
@@ -205,7 +227,7 @@ fun QuranView(context: Context, paddingValues: PaddingValues) {
 fun GreetingPreview() {
     QuranRecorderTheme {
         Scaffold { innerPadding ->
-            QuranView(context = LocalContext.current, paddingValues = innerPadding)
+            QuranView(paddingValues = innerPadding)
 
         }
     }
