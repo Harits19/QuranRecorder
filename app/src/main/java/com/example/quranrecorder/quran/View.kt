@@ -1,5 +1,4 @@
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -8,41 +7,31 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.quranrecorder.file.AudioFile
 import com.example.quranrecorder.file.FileService
+import com.example.quranrecorder.quran.ayah.AyahView
 import com.example.quranrecorder.quran.footer.FooterView
 import com.example.quranrecorder.record.RecordService
 import com.example.quranrecorder.ui.theme.QuranRecorderTheme
@@ -53,7 +42,7 @@ import kotlinx.coroutines.launch
 fun QuranView(paddingValues: PaddingValues) {
 
     val context = LocalContext.current;
-    val quran = remember { QuranService.loadQuran(context) }
+    val quran = QuranService.loadQuran(context)
     val pages = quran.pages;
     val firstAyah = quran.firstAyah;
     val lastAyah = quran.lastAyah;
@@ -67,10 +56,13 @@ fun QuranView(paddingValues: PaddingValues) {
 
 
     var selectedAyah by remember { mutableLongStateOf(firstAyah) }
-    var files by remember { mutableStateOf(emptyList<AudioFile>()) }
-    LaunchedEffect(selectedAyah) {
-        files = FileService(context).getAudioFiles()
+    fun getFiles(): List<AudioFile> {
+        return FileService(context).getAudioFiles()
     }
+
+    var files by remember { mutableStateOf(getFiles()) }
+
+
 
     Log.i("files", "files ${files.size}")
 
@@ -84,35 +76,45 @@ fun QuranView(paddingValues: PaddingValues) {
 
     val recordService = remember { RecordService(context) }
 
+    fun refreshFiles() {
+        files = getFiles();
+    }
 
-    suspend fun onClickNext() {
+
+    suspend fun onClickNextPrev(isNext: Boolean) {
+        val addValue = if (isNext) 1 else -1
         recordService.stop();
-        val nextAyah = selectedAyah + 1;
-        if (nextAyah > lastAyah) {
+        val nextAyah = selectedAyah + addValue;
+        if (isNext && nextAyah > lastAyah) {
+            return
+        }
+
+        if (!isNext && nextAyah < firstAyah) {
             return
         }
         selectedAyah = nextAyah;
         recordService.start(nextAyah);
+        refreshFiles();
 
-        if (lastAyahCurrentPage >= nextAyah) {
+        if (isNext && lastAyahCurrentPage >= nextAyah) {
             return;
         }
-        pagerState.animateScrollToPage(currentPage + 1)
+
+        if (!isNext && firstAyahCurrentPage <= nextAyah) {
+            return
+        }
+        pagerState.animateScrollToPage(currentPage + addValue)
+
+    }
+
+    suspend fun onClickNext() {
+
+        onClickNextPrev(true)
 
     }
 
     suspend fun onClickPrev() {
-        val prevAyah = selectedAyah - 1;
-        if (prevAyah < firstAyah) {
-            return
-        }
-        selectedAyah = prevAyah;
-
-        if (firstAyahCurrentPage <= prevAyah) {
-            return;
-        }
-
-        pagerState.animateScrollToPage(currentPage - 1)
+        onClickNextPrev(false)
 
     }
 
@@ -152,6 +154,8 @@ fun QuranView(paddingValues: PaddingValues) {
 
 
 
+    Log.i("QuranView", "files ${files.size}")
+
     Column {
         HorizontalPager(
             modifier = Modifier
@@ -173,31 +177,15 @@ fun QuranView(paddingValues: PaddingValues) {
 
                     )
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(page) { ayah ->
-                        val isSelected = ayah.number == selectedAyah;
-                        ListItem(headlineContent = {
-                            Text(
-                                text = ayah.text, textAlign = TextAlign.Right,
-                                fontSize = 32.sp,
-                                lineHeight = 64.sp,
-                                color = if (isSelected) Color.Blue else Color.Unspecified,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }, supportingContent = {
-                            val recordFile = files.find { item ->
-                                item.id == ayah.number
-                            }
-                            if (recordFile == null) return@ListItem;
 
-                            Row {
-                                Text(recordFile.file.name)
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Play")
-                            }
-
+                    items(page, key = { it.number }) { ayah ->
+                        val recordFile = files.find { item ->
+                            item.id == ayah.number
                         }
 
-                        )
-                        HorizontalDivider()
+                        Log.i("items", "recordFile ${recordFile}")
+
+                        AyahView(audio = recordFile, ayah = ayah, selectedAyah = selectedAyah)
 
                     }
                 }

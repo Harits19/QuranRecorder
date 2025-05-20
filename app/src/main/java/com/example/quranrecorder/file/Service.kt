@@ -1,6 +1,7 @@
 package com.example.quranrecorder.file
 
 import android.content.Context
+import android.util.Log
 import com.example.quranrecorder.record.RecordService
 import java.io.File
 
@@ -21,6 +22,9 @@ class FileService(private var context: Context) {
             .mapNotNull { item ->
                 try {
                     val id = item.name.split(".").first().toLong();
+                    Log.i("getAudioFiles", "id ${id}")
+                    Log.i("getAudioFiles", "name ${item.name}")
+
                     AudioFile(id = id, file = item)
                 } catch (e: NumberFormatException) {
                     e.printStackTrace();
